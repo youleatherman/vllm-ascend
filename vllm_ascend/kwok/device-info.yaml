@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  DeviceInfoCfg: |
+    {"DeviceInfo":{"DeviceList":{"huawei.com/Ascend910":"Ascend910-0,Ascend910-1,Ascend910-2,Ascend910-3,Ascend910-4,Ascend910-5,Ascend910-6,Ascend910-7","huawei.com/Ascend910-Fault":"[]","huawei.com/Ascend910-NetworkUnhealthy":"","huawei.com/Ascend910-Recovering":"","huawei.com/Ascend910-Unhealthy":""},"UpdateTime":1757941271},"SuperPodID":-1,"ServerIndex":1023,"CheckCode":"8659d0a973b0c118350b6d350ed139086130951dc540f5344446eae9ca25823d"}
+kind: ConfigMap
+metadata:
+  labels:  
+    mx-consumer-cim: "true"
+  name: mindx-dl-deviceinfo-k8smaster
+  namespace: kube-system

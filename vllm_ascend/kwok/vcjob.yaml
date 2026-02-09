@@ -1,0 +1,74 @@
+apiVersion: batch.volcano.sh/v1alpha1
+kind: Job
+metadata:
+  name: mindx-dls-test                  # The value must be consistent with the name of ConfigMap.
+  namespace: vcjob                      # Select a proper namespace based on the site requirements. (The namespaces of ConfigMap and Job must be the same. In addition, if the tjm component of MindX-add exists, the vcjob namespace cannot be used.)
+  labels:
+    ring-controller.atlas: ascend-910   # The HCCL-Controller distinguishes Ascend 910 and other processors based on this label.
+spec:
+  minAvailable: 100                      # The value of minAvailable is 1 in a single-node scenario and N in an N-node distributed scenario.
+  schedulerName: volcano                # Use the Volcano scheduler to schedule jobs.
+  policies:
+    - event: PodEvicted
+      action: RestartJob
+  plugins:
+    ssh: []
+    env: []
+    svc: []
+  maxRetry: 3
+  queue: default
+  tasks:
+  - name: "default-test"
+    replicas: 100                         # The value of replicas is 1 in a single-node scenario and N in an N-node scenario. The number of NPUs in the requests field is 8 in an N-node scenario.
+    template:
+      metadata:
+        labels:
+          app: mindspore
+          ring-controller.atlas: ascend-910
+      spec:
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchExpressions:
+                    - key: volcano.sh/job-name
+                      operator: In
+                      values:
+                        - mindx-dls-test
+                topologyKey: kubernetes.io/hostname
+ 
+        # A taints was added to an automatically created Node.
+        # You can remove taints of Node or add this tolerations.
+        tolerations:
+          - key: "kwok.x-k8s.io/node"
+            operator: "Exists"
+            effect: "NoSchedule"
+ 
+        # terminationGracePeriodSeconds: 360
+        containers:
+        - image: ubuntu:18.04         # Training framework image, which can be modified.
+          imagePullPolicy: IfNotPresent
+          name: mindspore
+          env:
+          - name: mindx-dls-test        # The value must be consistent with the value of JobName.
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: XDL_IP                # IP address of the physical node, which is used to identify the node where the pod is running
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          # ASCEND_VISIBLE_DEVICES env variable is used by ascend-docker-runtime when in the whole card scheduling scene with volcano scheduler. please delete it when in the static vNPU scheduling scene or without volcano.
+          - name: ASCEND_VISIBLE_DEVICES
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.annotations['huawei.com/Ascend910']               # The value must be the same as resources.requests
+          command: ["/bin/bash", "-c", "sleep 30000"] # Commands for running the training script. Ensure that the involved commands and paths exist on Docker.
+          resources:
+            requests:
+              huawei.com/Ascend910: 8                                                # Number of required NPUs. The maximum value is 8. You can add lines below to configure resources such as memory and CPU.
+            limits:
+              huawei.com/Ascend910: 8                                                # The value must be consistent with that in requests.
+        nodeSelector:
+          type: kwok                                # Configure the label based on the actual job.
+        restartPolicy: Never
